@@ -1,26 +1,70 @@
 return {
-   Name = "Demo 3",
+   dataversion = 1.0,
 
-   {"clef", "G"},
-   {"key", 0},
-   {"time-signature", 4, 4},
-   {"tempo", 120},
+   title = "Demo 3",
+   subtitle = "Treble and Bass Clefs",
+   authors = {"Nícolas Neves"},
 
-   ---------- 1
+   systems = {
+      [1] = {                    --> System 1
+         [1] = {                 --> Measure 1
+            info = {
+               clef = "G",
+               key = 0,
+               time = {4, 4},
+               tempo = 120,
+            },
 
-   {"start-group"},
-   {"note", 67, 0.5},
-   {"note", 72, 0.5},
+            content = {
+               [1] = {           --> Voice 1
+                  {type = "start-group"},
+                  {type = "note", duration = 0.5, pitches = {67}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {72}, accidentals = {0}},
 
-   {"note", 69, 0.5},
-   {"note", 74, 0.5},
-   {"end-group"},
+                  {type = "note", duration = 0.5, pitches = {69}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {74}, accidentals = {0}},
+                  {type = "end-group"},
 
-   {"start-group"},
-   {"note", 67, 0.5},
-   {"note", 72, 0.5},
+                  {type = "start-group"},
+                  {type = "note", duration = 0.5, pitches = {67}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {72}, accidentals = {0}},
 
-   {"note", 69, 0.5},
-   {"note", 74, 0.5},
-   {"end-group"},
+                  {type = "note", duration = 0.5, pitches = {69}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {74}, accidentals = {0}},
+                  {type = "end-group"},
+
+               },
+            },
+         },
+         [2] = {                 --> Measure 2
+            info = {
+               clef = "F",
+               key = 0,
+               time = {4, 4},
+               tempo = 120,
+            },
+
+            content = {
+               [1] = {           --> Voice 1
+                  {type = "start-group"},
+                  {type = "note", duration = 0.5, pitches = {55}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {60}, accidentals = {0}},
+
+                  {type = "note", duration = 0.5, pitches = {53}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {57}, accidentals = {0}},
+                  {type = "end-group"},
+
+                  {type = "start-group"},
+                  {type = "note", duration = 0.5, pitches = {55}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {60}, accidentals = {0}},
+
+                  {type = "note", duration = 0.5, pitches = {53}, accidentals = {0}},
+                  {type = "note", duration = 0.5, pitches = {57}, accidentals = {0}},
+                  {type = "end-group"},
+
+               },
+            },
+         }
+      },
+   }
 }

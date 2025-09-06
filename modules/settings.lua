@@ -352,6 +352,98 @@ function SETTINGS.loadSong(songName, shouldClear, fileDropped)
 end
 
 
+function SETTINGS.loadSongNEW(songName, shouldClear, fileDropped)
+			if songName == "" then
+						warn("invalid song name")
+						return
+			end
+
+			if shouldClear then
+						SETTINGS.clearSongContent()
+			end
+
+			local songTable
+			if not fileDropped then
+						songTable = require("songs/" .. songName)
+			else
+						songTable = require(songName)
+			end
+
+			if not (songTable and songName) then
+						error("Song \"" .. songName .. "\" not found")
+			end
+
+			if songTable.title == SETTINGS.songName then
+						return
+			end
+			SETTINGS.songName = songTable.title
+
+			love.window.setTitle(SETTINGS.songName .. " - Song")
+
+			local minBeatDuration = math.huge
+
+			for _, system in ipairs(songTable.systems) do
+						for measureNumber, measure in ipairs(system) do
+									if measureNumber == 1 and measure.info then
+												for _, info in ipairs(measure.info) do
+															SETTINGS.currentClef = info.clef or SETTINGS.currentClef or "G"
+															SETTINGS.tempo = info.tempo or SETTINGS.tempo or 120
+
+															if info.time then
+																		SETTINGS.timeSignature.numerator = info.time[1]
+																		SETTINGS.timeSignature.denominator = info.time[2]
+															else
+																		warn("Measure without time signature info found. Keeping previous time signature.")
+															end
+															local newItem = STAFF_MODULES.timeSignature.new(info[2], info[3])
+															table.insert(SETTINGS.sheetContent, newItem)
+												end
+									end
+
+									if measure.content then
+												for _, voice in ipairs(measure.content) do
+															local currentNoteGroup = nil
+
+															for _, noteInfo in ipairs(voice) do
+																		local newItem
+
+																		if noteInfo.type == "start-group" and not currentNoteGroup then
+																					currentNoteGroup = STAFF_MODULES.noteGroup.new()
+																		end
+
+																		if noteInfo.type == "end-group" and currentNoteGroup then
+																					table.insert(SETTINGS.sheetContent, currentNoteGroup)
+																					currentNoteGroup = nil
+																		end
+
+																		if noteInfo.type == "note" then
+																					local newNote = STAFF_MODULES.note.new(noteInfo.pitches and noteInfo.pitches[1] or nil,
+																									noteInfo.duration, noteInfo.articulation)
+																					minBeatDuration = math.min(minBeatDuration, newNote.beatDuration)
+
+																					if not currentNoteGroup or newNote.beatDuration >= 1 or not newNote.pitch then
+																								newItem = newNote
+																								if currentNoteGroup then
+																											table.insert(SETTINGS.sheetContent, currentNoteGroup)
+																											currentNoteGroup = nil
+																								end
+																					else
+																								table.insert(currentNoteGroup.children, newNote)
+																					end
+																		end
+																		if newItem then
+																					table.insert(SETTINGS.sheetContent, newItem)
+																		end
+															end
+												end
+									end
+						end
+			end
+			-- > Calculate the proper note spacing
+			SETTINGS.noteSpacing = 0.305652 / minBeatDuration + 0.591304
+end
+
+
 function SETTINGS.drawSheetContent()
 	SETTINGS.staffPositionY = SETTINGS.staffPositionYPercent * WINDOW_Y
 	SETTINGS.staffHeight = SETTINGS.staffHeightPercent * WINDOW_Y
