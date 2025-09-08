@@ -27,7 +27,8 @@ function songSelector.draw()
          end
          SETTINGS.camera.velocityX = 0
          SETTINGS.currentTab = TABS["sheet"]
-         SETTINGS.loadSong(songFileName, true)
+         SETTINGS.sheetContent = require("songs/" .. songFileName)
+         --SETTINGS.loadSong(songFileName, true)
          break
       end
    end

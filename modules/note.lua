@@ -17,6 +17,11 @@ function note.new(pitch, beatDuration)
    return self
 end
 
+-- TEMPORARY
+function note.newNEW(data)
+   return setmetatable(data, note)
+end
+
 
 function note.getExtraLineOffset(beatDuration)
    local sprite = SPRITES["note-" .. math.ceil(beatDuration)]
@@ -212,7 +217,7 @@ function note:draw(beatPosition, currentAccidentals, headOnly, noteData)
 end
 
 
-function note:decideWhatToDrawNEW(averageLine, lowestLine, highestLine, noteData, currentAccidentals, headOnly)
+function note:decideWhatToDrawNEW(averageLine, lowestLine, highestLine, currentAccidentals, headOnly)
    --[[
       ORDER TO DECIDE:
       --> Head
@@ -229,50 +234,48 @@ function note:decideWhatToDrawNEW(averageLine, lowestLine, highestLine, noteData
    whatToDraw.drawFlag = false
    whatToDraw.direction = (averageLine >= 3) and 1 or -1
 
-   if (not noteData.pitches) or #noteData.pitches <= 0 then return whatToDraw end -- Is it not a rest? (!)
+   if (not self.pitches) or #self.pitches <= 0 then return whatToDraw end -- Is it not a rest? (!)
    if highestLine > 5 or lowestLine < 1 then
       whatToDraw.drawLedgerLines = true
    end
 
    local currentPitchAccidentals = {}
-   for index, pitch in ipairs(noteData.pitches) do
+   for index, pitch in ipairs(self.pitches) do
       currentPitchAccidentals[index] = currentAccidentals[pitch] or 0
 
-      local corresponds = currentPitchAccidentals[index] ~= noteData[index]
+      local corresponds = (currentPitchAccidentals[index] ~= self.accidentals[index])
       table.insert(whatToDraw.drawAccidentals, corresponds)
    end
 
-   if headOnly or noteData.duration >= 4 then return whatToDraw end --> Is there something else that needs to be drawn? (!)
+   if headOnly or self.duration >= 4 then return whatToDraw end --> Is there something else that needs to be drawn? (!)
    whatToDraw.drawStem = true
 
-   if noteData.duration >= 1 then return whatToDraw end --> Does the note have a flag? (!)
+   if self.duration >= 1 then return whatToDraw end --> Does the note have a flag? (!)
    whatToDraw.drawFlag = true
 
    return whatToDraw
 end
 
 
-function note:drawNEW(beatPosition, currentAccidentals, headOnly, noteData)
+function note:drawNEW(beatPosition, currentAccidentals, headOnly)
    --> TEMPORARY
-   if noteData then
-      headOnly = true
-   end
+   --headOnly = true
 
    local scale
    local spriteName
    local sprite
    local offsetY
 
-   if noteData.pitches and #noteData.pitches > 0 then
+   if self.pitches and #self.pitches > 0 then
       scale = 0.25
       spriteName = "note-"
-      sprite = SPRITES[spriteName .. math.ceil(noteData.duration)]
+      sprite = SPRITES[spriteName .. math.ceil(self.duration)]
       offsetY = 0.5
    else
-      scale = SETTINGS.rests[noteData.duration].scale
+      scale = SETTINGS.rests[self.duration].scale
       spriteName = "rest-"
-      sprite = SPRITES[spriteName .. noteData.duration]
-      offsetY = SETTINGS.rests[noteData.duration].offsetY
+      sprite = SPRITES[spriteName .. self.duration]
+      offsetY = SETTINGS.rests[self.duration].offsetY
    end
    local spriteScale = scale / sprite:getHeight()
 
@@ -283,11 +286,11 @@ function note:drawNEW(beatPosition, currentAccidentals, headOnly, noteData)
    local lowestIndex = 1
    local averageLine = 0
 
-   for index, pitch in ipairs(noteData.pitches or {}) do
-      if pitch > noteData[highestIndex] then highestIndex = index end
-      if pitch < noteData[lowestIndex]  then lowestIndex  = index end
+   for index, pitch in ipairs(self.pitches or {}) do
+      if pitch > self.pitches[highestIndex] then highestIndex = index end
+      if pitch < self.pitches[lowestIndex]  then lowestIndex  = index end
 
-      local line = SETTINGS.getLineForPitch(pitch, noteData.duration)
+      local line = SETTINGS.getLineForPitch(pitch, self.duration)
       averageLine = averageLine + line
       table.insert(lines, line)
    end
@@ -295,7 +298,7 @@ function note:drawNEW(beatPosition, currentAccidentals, headOnly, noteData)
    local lowestLine = lines[lowestIndex]
    local highestLine = lines[highestIndex]
 
-   local whatToDraw = self:decideWhatToDrawNEW(averageLine, lowestLine, highestLine, noteData, currentAccidentals, headOnly)
+   local whatToDraw = self:decideWhatToDrawNEW(averageLine, lowestLine, highestLine, currentAccidentals, headOnly)
    local direction = whatToDraw.direction --> 1: Down ; -1: Up
 
    --> Don't draw if it's outside the screen
@@ -307,6 +310,10 @@ function note:drawNEW(beatPosition, currentAccidentals, headOnly, noteData)
    for _, line in ipairs(lines) do
       table.insert(positionsY, SETTINGS.getYforLine(line))
    end
+
+   --> Get the Y positions of the highest and lowest notes for drawing stems
+   local frontY = (direction < 0) and positionsY[highestIndex] or positionsY[lowestIndex]
+   local backY = (direction < 0) and positionsY[lowestIndex] or positionsY[highestIndex]
 
    local widthOffset = SETTINGS.lineWidth * 0.5
    local offsetX = (direction >= 1) and 0 or sprite:getWidth() * spriteScale --> offset to draw on the right or the left
@@ -342,7 +349,7 @@ function note:drawNEW(beatPosition, currentAccidentals, headOnly, noteData)
       local rounded = lineToUse + increment * (lineToUse % 1)
       
       for i = rounded, clamp(lineToUse, 0, 6), increment do
-         local offsetX = note.getExtraLineOffset(noteData.duration)
+         local offsetX = note.getExtraLineOffset(self.duration)
          local positionY = SETTINGS.getYforLine(i)
 
          love.graphics.line(
@@ -354,65 +361,69 @@ function note:drawNEW(beatPosition, currentAccidentals, headOnly, noteData)
       end
    end
 
+   local stemTip = frontY + (stemHeight + 0.5) / 4 * direction
+
    --> Draw stem
    if whatToDraw.drawStem then
       love.graphics.setLineWidth(SETTINGS.lineWidth)
       love.graphics.line(
          positionX + offsetX + widthOffset * direction,
-         positionY + SETTINGS.stemOffsetY * direction,
+         backY + SETTINGS.stemOffsetY * direction,
          positionX + offsetX + widthOffset * direction,
-         positionY + (stemHeight + 0.5) / 4 * direction
+         stemTip
       )
    end
    love.graphics.setLineStyle("smooth")
 
    if whatToDraw.drawFlag then
       --> Draw flag
-      local flagSprite = SPRITES["flag-" .. self.beatDuration]
-      local flagScale = SETTINGS.flags[self.beatDuration].scale / flagSprite:getHeight()
+      local flagSprite = SPRITES["flag-" .. self.duration]
+      local flagScale = SETTINGS.flags[self.duration].scale / flagSprite:getHeight()
       
       love.graphics.draw(
          flagSprite,
          positionX + offsetX + SETTINGS.lineWidth / 2 * ((direction > 0) and 1 or 0),
-         positionY + (stemHeight + 0.5) / 4 * direction,
+         stemTip,
          0, -- rotation
          flagScale, flagScale * -direction, -- scale
          0, 0 -- offset
       )
    end
 
-   if self.pitch and SETTINGS.colorfulNotes then
-      local pitch = self.pitch + self.accidental
-      love.graphics.setColor(SETTINGS.colorScheme["note-" .. (pitch % 12)])
-   --else
-      --love.graphics.setColor(SETTINGS.colorScheme["print-color"])
-   end
+   for index, positionY in ipairs(positionsY) do
+      if self.pitches[index] and SETTINGS.colorfulNotes then
+         local pitch = self.pitches[index] + (self.accidentals and self.accidentals[index] or 0)
+         love.graphics.setColor(SETTINGS.colorScheme["note-" .. (pitch % 12)])
+      --else
+         --love.graphics.setColor(SETTINGS.colorScheme["print-color"])
+      end
+      if whatToDraw.drawAccidentals[index] then
+         local accidental = self.accidentals[index] or 0
+         local accidentalSprite = SPRITES["accidental" .. accidental]
+         local accidentalScale = SETTINGS.accidentals[accidental].scale / accidentalSprite:getHeight()
 
-   if whatToDraw.drawHead then
-      --> Draw note head
-      love.graphics.draw(
-         sprite,
-         positionX,
-         positionY,
-         0, -- rotation
-         spriteScale, nil, -- scale
-         0, offsetY * sprite:getHeight() -- offset
-      )
+         love.graphics.draw(
+            accidentalSprite,
+            positionX - accidentalSprite:getWidth() * accidentalScale - SETTINGS.accidentalSpacing,
+            positionY,
+            0, -- rotation
+            accidentalScale, nil, -- scale
+            0, accidentalSprite:getHeight() * SETTINGS.accidentals[accidental].offsetY -- offset
+         )
+      end
+      if whatToDraw.drawHead then
+         --> Draw note head
+         love.graphics.draw(
+            sprite,
+            positionX,
+            positionY,
+            0, -- rotation
+            spriteScale, nil, -- scale
+            0, offsetY * sprite:getHeight() -- offset
+         )
+      end
    end
-
-   if whatToDraw.drawAccidentals then
-      local accidentalSprite = SPRITES["accidental" .. self.accidental]
-      local accidentalScale = SETTINGS.accidentals[self.accidental].scale / accidentalSprite:getHeight()
-
-      love.graphics.draw(
-         SPRITES["accidental" .. self.accidental],
-         positionX - accidentalSprite:getWidth() * accidentalScale - SETTINGS.accidentalSpacing,
-         positionY,
-         0, -- rotation
-         accidentalScale, nil, -- scale
-         0, accidentalSprite:getHeight() * SETTINGS.accidentals[self.accidental].offsetY -- offset
-      )
-   end
+   
    love.graphics.setColor(SETTINGS.colorScheme["print-color"])
    return 0, whatToDraw
 end

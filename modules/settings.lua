@@ -533,4 +533,129 @@ function SETTINGS.drawSheetContent()
 end
 
 
+function SETTINGS.drawMeasure(measure, beatPosition, accidentals)
+	local lastBeatDuration = 1
+	local defaultWhatToDraw = {}
+	defaultWhatToDraw.drawHead = true
+	defaultWhatToDraw.drawLedgerLines = false
+	defaultWhatToDraw.drawAccidentals = false
+	defaultWhatToDraw.drawStem = false
+	defaultWhatToDraw.drawFlag = false
+	defaultWhatToDraw.direction = 0
+	local whatGotDrawn = defaultWhatToDraw
+
+	for _, voice in ipairs(measure.content) do
+		
+		local screenSide = -1
+		local currentNoteGroup = nil
+
+		for _, noteData in ipairs(voice) do
+			if noteData.type == "start-group" and not currentNoteGroup then
+				currentNoteGroup = STAFF_MODULES.noteGroup.new()
+			end
+			if noteData.type == "end-group" and currentNoteGroup then
+				beatPosition, accidentals, lastBeatDuration = currentNoteGroup:draw(beatPosition, accidentals)
+				whatGotDrawn = defaultWhatToDraw
+				currentNoteGroup = nil
+			end
+
+			if noteData.type == "note" and screenSide <= 0 then
+				local newNote = STAFF_MODULES.note.newNEW(noteData)
+				if not currentNoteGroup or newNote.duration >= 1 or not newNote.pitch then
+					screenSide, whatGotDrawn = newNote:drawNEW(beatPosition, accidentals, false)
+
+					if newNote.pitch ~= nil then
+						accidentals[newNote.pitch] = newNote.accidental
+					end
+					lastBeatDuration = newNote.beatDuration
+					beatPosition = beatPosition + newNote.duration * SETTINGS.timeSignature.denominator / 4
+				else
+					table.insert(currentNoteGroup.children, newNote)
+				end
+			end
+		end
+	end
+	if beatPosition > 0 and beatPosition % SETTINGS.timeSignature.numerator == 0 then
+		--> Measure reached
+		SETTINGS.drawBar(beatPosition / SETTINGS.timeSignature.numerator, lastBeatDuration, whatGotDrawn)
+		accidentals = {}
+	end
+	return beatPosition, accidentals, lastBeatDuration
+end
+
+
+function SETTINGS.drawSheetContentNEW()
+	SETTINGS.staffPositionY = SETTINGS.staffPositionYPercent * WINDOW_Y
+	SETTINGS.staffHeight = SETTINGS.staffHeightPercent * WINDOW_Y
+
+	love.graphics.translate(0, SETTINGS.staffPositionY)
+	love.graphics.scale(SETTINGS.staffHeight)
+
+	--> Drawing the staff lines
+	love.graphics.setLineStyle("rough")
+	love.graphics.setLineWidth(SETTINGS.lineWidth)
+	love.graphics.setColor(SETTINGS.colorScheme["print-color"])
+
+	for i = 1, 5, 1 do
+		local y = SETTINGS.getYforLine(i)
+		love.graphics.line(0, y, WINDOW_X, y)
+	end
+	love.graphics.setLineStyle("smooth")
+
+	--> Drawing the clef
+	love.graphics.draw(
+		SPRITES[SETTINGS.currentClef .. "-clef"],
+		SETTINGS.clefMargin, -- position x
+		SETTINGS.getYforLine(SETTINGS.clefs[SETTINGS.currentClef].baseLine), -- position y
+		0, -- rotation
+		SETTINGS.clefs[SETTINGS.currentClef].drawScale, -- scale x
+		nil, --scale y
+		0, -- offset x
+		SETTINGS.clefs[SETTINGS.currentClef].offsetY * SPRITES[SETTINGS.currentClef .. "-clef"]:getHeight() -- offset y
+	)
+
+	--> Drawing the sheet content
+	local clefWidth = SETTINGS.clefWidth(SETTINGS.currentClef)
+
+	love.graphics.setShader(SHADERS["gradient-cut"])
+	SHADERS["gradient-cut"]:send("minX", (clefWidth + 2 * SETTINGS.clefMargin))
+	SHADERS["gradient-cut"]:send("distance", SETTINGS.noteGradientDistance)
+	SHADERS["gradient-cut"]:send("staffHeight", SETTINGS.staffHeight)
+	--SHADERS.gradientCut:send("screenSize", {windowX, windowY})
+
+	CAMERA:attach(0, 0, WINDOW_X, WINDOW_Y)
+
+	local accidentals = {}
+	local beatPosition = 0
+	local screenSide = -1
+
+	for _, system in ipairs(SETTINGS.sheetContent.systems) do
+		for measureNumber, measure in ipairs(system) do
+
+			--> New measure, read info
+			if measure.info then
+				SETTINGS.currentClef = measure.info.clef or SETTINGS.currentClef or "G"
+				SETTINGS.tempo = measure.info.tempo or SETTINGS.tempo or 120
+
+				SETTINGS.timeSignature.numerator = measure.info.time[1] or SETTINGS.timeSignature.numerator or 4
+				SETTINGS.timeSignature.denominator = measure.info.time[2] or SETTINGS.timeSignature.denominator or 4
+
+				--local newItem = STAFF_MODULES.timeSignature.new(info[2], info[3])
+				--newItem:draw(beatPosition)
+			end
+
+			if measure.content then
+				SETTINGS.drawMeasure(measure, beatPosition, accidentals)
+				beatPosition = beatPosition + SETTINGS.timeSignature.numerator
+				accidentals = {}
+				screenSide = -1
+			end
+		end
+	end
+	love.graphics.setShader()
+	CAMERA:detach()
+	love.graphics.origin()
+end
+
+
 return SETTINGS

@@ -43,6 +43,7 @@ end
 
 
 function sheetTab.update(dt)
+   --if true then return end
    SETTINGS.staffPositionY = SETTINGS.staffPositionYPercent * WINDOW_Y
    SETTINGS.staffHeight = SETTINGS.staffHeightPercent * WINDOW_Y
    
@@ -50,7 +51,7 @@ function sheetTab.update(dt)
 
    local clefWidth = SETTINGS.clefWidth(SETTINGS.currentClef)
    
-   local firstBeatDuration = STAFF_MODULES.note.getAllNotes()[1].beatDuration
+   local firstBeatDuration = SETTINGS.sheetContent.systems[1][1].content[1][1].duration
    local extraLineOffset = STAFF_MODULES.note.getExtraLineOffset(firstBeatDuration)
    
    if not sheetTab.playing then
@@ -96,7 +97,7 @@ end
 
 function sheetTab.draw()
    love.graphics.setBackgroundColor(SETTINGS.colorScheme["background-color"])
-   SETTINGS.drawSheetContent()
+   SETTINGS.drawSheetContentNEW()
    --SETTINGS.drawMiddleLines()
 
    --> Draw UI

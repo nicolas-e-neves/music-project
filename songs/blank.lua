@@ -15,7 +15,7 @@ return {
                tempo = 120,
             },
 
-            notes = {
+            content = {
                [1] = {           --> Voice 1
                   {type = "note", duration = 1, pitches = {60}, accidentals = {0}, articulation = {"staccato"}}, -- new syntax for creating notes
                },
