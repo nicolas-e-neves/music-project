@@ -51,7 +51,13 @@ function sheetTab.update(dt)
 
    local clefWidth = SETTINGS.clefWidth(SETTINGS.currentClef)
    
-   local firstBeatDuration = SETTINGS.sheetContent.systems[1][1].content[1][1].duration
+   local firstBeatDuration = 0
+   for _, item in pairs(SETTINGS.sheetContent.systems[1][1].content[1]) do
+      if item.type == "note" then
+         firstBeatDuration = item.duration
+         break
+      end
+   end
    local extraLineOffset = STAFF_MODULES.note.getExtraLineOffset(firstBeatDuration)
    
    if not sheetTab.playing then

@@ -554,16 +554,18 @@ function SETTINGS.drawMeasure(measure, beatPosition, accidentals)
 				currentNoteGroup = STAFF_MODULES.noteGroup.new()
 			end
 			if noteData.type == "end-group" and currentNoteGroup then
-				beatPosition, accidentals, lastBeatDuration = currentNoteGroup:draw(beatPosition, accidentals)
+				beatPosition, accidentals, lastBeatDuration = currentNoteGroup:drawNEW(beatPosition, accidentals)
 				whatGotDrawn = defaultWhatToDraw
 				currentNoteGroup = nil
 			end
 
-			if noteData.type == "note" and screenSide <= 0 then
+			if noteData.type == "note" and (screenSide <= 0) then
 				local newNote = STAFF_MODULES.note.newNEW(noteData)
-				if not currentNoteGroup or newNote.duration >= 1 or not newNote.pitch then
+
+				if not currentNoteGroup or newNote.duration >= 1 or #newNote.pitches <= 0 then
 					screenSide, whatGotDrawn = newNote:drawNEW(beatPosition, accidentals, false)
 
+					--> CHANGE THIS LATER
 					if newNote.pitch ~= nil then
 						accidentals[newNote.pitch] = newNote.accidental
 					end
@@ -572,6 +574,7 @@ function SETTINGS.drawMeasure(measure, beatPosition, accidentals)
 				else
 					table.insert(currentNoteGroup.children, newNote)
 				end
+
 			end
 		end
 	end
