@@ -14,22 +14,29 @@ function songSelector.draw()
       local songFileName = songFileName:sub(1, -5)
       local song = require("songs/" .. songFileName)
       
-      local songName = songFileName
-      if song.Name then
-         songName = song.Name
-      end
-      
-      local clicked = UI.Button(songName)
-      UI.SameLine()
-      if clicked then
-         if songName ~= SETTINGS.songName then
-            SETTINGS.camera.x = 0
+      if song.dataversion ~= nil and SETTINGS.dataversion == song.dataversion then
+         local songName = songFileName
+         if song.Name then
+            songName = song.Name
          end
-         SETTINGS.camera.velocityX = 0
-         SETTINGS.currentTab = TABS["sheet"]
-         SETTINGS.sheetContent = require("songs/" .. songFileName)
-         --SETTINGS.loadSong(songFileName, true)
-         break
+         if song.title then
+            songName = song.title
+         end
+         
+         local clicked = UI.Button(songName)
+         UI.SameLine()
+         if clicked then
+            if songName ~= SETTINGS.songName then
+               SETTINGS.camera.x = 0
+            end
+            SETTINGS.camera.velocityX = 0
+            SETTINGS.currentTab = TABS["sheet"]
+            SETTINGS.sheetContent = require("songs/" .. songFileName)
+            --SETTINGS.loadSong(songFileName, true)
+            break
+         end
+      else
+         print("The song '" .. songFileName .. "' is using an old data format. Please update it to the new format.")
       end
    end
 

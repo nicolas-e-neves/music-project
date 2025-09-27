@@ -1,4 +1,5 @@
 return {
+   dataversion = 0.0,
    Name = "Saria's Song",
 
    {"clef", "G"},

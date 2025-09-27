@@ -1,4 +1,5 @@
 local SETTINGS = {}
+SETTINGS.dataversion = 1.0
 SETTINGS.currentTab = {}
 SETTINGS.staffPositionYPercent = 1 / 2
 SETTINGS.staffHeightPercent = 1 / 5
@@ -98,7 +99,7 @@ SETTINGS.accidentals[-1].scale = 2.2 / 4
 SETTINGS.accidentals[-1].offsetY = 0.76
 
 SETTINGS.accidentals[0] = {}
-SETTINGS.accidentals[0].scale = 2 / 4
+SETTINGS.accidentals[0].scale = 2.1 / 4
 SETTINGS.accidentals[0].offsetY = 0.5
 
 SETTINGS.accidentals[1] = {}
@@ -128,6 +129,7 @@ function sign(x)
 end
 
 
+--> Rounds the pitch to the nearest note in the C major scale
 function SETTINGS.roundPitch(pitch, direction)
 	if pitch == nil then return nil end
    direction = direction or 1
@@ -198,8 +200,11 @@ function SETTINGS.drawBar(index, lastBeatDuration, whatGotDrawn, type)
 	local maxX = SETTINGS.getXforBeat(index * SETTINGS.timeSignature.numerator) - SETTINGS.lineWidth
 	local minX = maxX - SETTINGS.noteSpacing * lastBeatDuration + 0.25 * noteHeadRatio + 2 * SETTINGS.lineWidth
 
-	if whatGotDrawn.drawFlag and whatGotDrawn.direction < 0 then
+	if whatGotDrawn.drawFlag and lastBeatDuration < 1 and whatGotDrawn.direction < 0 then
 		local flagSprite = SPRITES["flag-" .. lastBeatDuration]
+		if not SETTINGS.flags[lastBeatDuration] then
+			error(lastBeatDuration)
+		end
    	local flagScale = SETTINGS.flags[lastBeatDuration].scale / flagSprite:getHeight()
 		local flagWidth = flagScale * flagSprite:getWidth()
 		minX = minX + flagWidth
@@ -271,268 +276,6 @@ function SETTINGS.clearSongContent()
 end
 
 
-function SETTINGS.loadSong(songName, shouldClear, fileDropped)
-	if songName == "" then warn("invalid song name") return end
-	
-	if shouldClear then
-		SETTINGS.clearSongContent()
-	end
-	
-	local songTable
-	if not fileDropped then
-		songTable = require("songs/" .. songName)
-	else
-		songTable = require(songName)
-	end
-	
-	if not (songTable and songName) then
-		error("Song \"" .. songName .. "\" not found")
-	end
-	
-	if songTable.Name == SETTINGS.songName then return end
-	SETTINGS.songName = songTable.Name
-
-	love.window.setTitle(SETTINGS.songName .. " - Song")
-
-	local currentNoteGroup = nil
-	local minBeatDuration = math.huge
-	
-	-- the songTable is a table containing other tables with two values, one for the note and another for the duration
-	for _, info in ipairs(songTable) do
-		local newItem
-
-		if info[1] == "start-group" and not currentNoteGroup then
-			currentNoteGroup = STAFF_MODULES.noteGroup.new()
-		end
-
-		if info[1] == "end-group" and currentNoteGroup then
-			table.insert(SETTINGS.sheetContent, currentNoteGroup)
-			currentNoteGroup = nil
-		end
-
-		if info[1] == "note" then
-			local newNote = STAFF_MODULES.note.new(info[2], info[3])
-			minBeatDuration = math.min(minBeatDuration, newNote.beatDuration)
-
-			if not currentNoteGroup or newNote.beatDuration >= 1 or not newNote.pitch then
-				newItem = newNote
-				if currentNoteGroup then
-					table.insert(SETTINGS.sheetContent, currentNoteGroup)
-					currentNoteGroup = nil
-				end
-			else
-				table.insert(currentNoteGroup.children, newNote)
-			end
-		end
-
-		--[
-		if info[1] == "clef" then
-         SETTINGS.currentClef = info[2]
-      end
-
-		if info[1] == "tempo" then
-			SETTINGS.tempo = info[2]
-		end
-
-		if info[1] == "time-signature" then
-			SETTINGS.timeSignature.numerator = info[2]
-			SETTINGS.timeSignature.denominator = info[3]
-
-			newItem = STAFF_MODULES.timeSignature.new(info[2], info[3])
-		end
-		--]]
-		
-		if newItem then
-			table.insert(SETTINGS.sheetContent, newItem)
-		end
-	end
-
-	--> Calculate the proper note spacing
-	SETTINGS.noteSpacing = 0.305652 / minBeatDuration + 0.591304
-end
-
-
-function SETTINGS.loadSongNEW(songName, shouldClear, fileDropped)
-			if songName == "" then
-						warn("invalid song name")
-						return
-			end
-
-			if shouldClear then
-						SETTINGS.clearSongContent()
-			end
-
-			local songTable
-			if not fileDropped then
-						songTable = require("songs/" .. songName)
-			else
-						songTable = require(songName)
-			end
-
-			if not (songTable and songName) then
-						error("Song \"" .. songName .. "\" not found")
-			end
-
-			if songTable.title == SETTINGS.songName then
-						return
-			end
-			SETTINGS.songName = songTable.title
-
-			love.window.setTitle(SETTINGS.songName .. " - Song")
-
-			local minBeatDuration = math.huge
-
-			for _, system in ipairs(songTable.systems) do
-						for measureNumber, measure in ipairs(system) do
-									if measureNumber == 1 and measure.info then
-												for _, info in ipairs(measure.info) do
-															SETTINGS.currentClef = info.clef or SETTINGS.currentClef or "G"
-															SETTINGS.tempo = info.tempo or SETTINGS.tempo or 120
-
-															if info.time then
-																		SETTINGS.timeSignature.numerator = info.time[1]
-																		SETTINGS.timeSignature.denominator = info.time[2]
-															else
-																		warn("Measure without time signature info found. Keeping previous time signature.")
-															end
-															local newItem = STAFF_MODULES.timeSignature.new(info[2], info[3])
-															table.insert(SETTINGS.sheetContent, newItem)
-												end
-									end
-
-									if measure.content then
-												for _, voice in ipairs(measure.content) do
-															local currentNoteGroup = nil
-
-															for _, noteInfo in ipairs(voice) do
-																		local newItem
-
-																		if noteInfo.type == "start-group" and not currentNoteGroup then
-																					currentNoteGroup = STAFF_MODULES.noteGroup.new()
-																		end
-
-																		if noteInfo.type == "end-group" and currentNoteGroup then
-																					table.insert(SETTINGS.sheetContent, currentNoteGroup)
-																					currentNoteGroup = nil
-																		end
-
-																		if noteInfo.type == "note" then
-																					local newNote = STAFF_MODULES.note.new(noteInfo.pitches and noteInfo.pitches[1] or nil,
-																									noteInfo.duration, noteInfo.articulation)
-																					minBeatDuration = math.min(minBeatDuration, newNote.beatDuration)
-
-																					if not currentNoteGroup or newNote.beatDuration >= 1 or not newNote.pitch then
-																								newItem = newNote
-																								if currentNoteGroup then
-																											table.insert(SETTINGS.sheetContent, currentNoteGroup)
-																											currentNoteGroup = nil
-																								end
-																					else
-																								table.insert(currentNoteGroup.children, newNote)
-																					end
-																		end
-																		if newItem then
-																					table.insert(SETTINGS.sheetContent, newItem)
-																		end
-															end
-												end
-									end
-						end
-			end
-			-- > Calculate the proper note spacing
-			SETTINGS.noteSpacing = 0.305652 / minBeatDuration + 0.591304
-end
-
-
-function SETTINGS.drawSheetContent()
-	SETTINGS.staffPositionY = SETTINGS.staffPositionYPercent * WINDOW_Y
-	SETTINGS.staffHeight = SETTINGS.staffHeightPercent * WINDOW_Y
-
-	love.graphics.translate(0, SETTINGS.staffPositionY)
-   love.graphics.scale(SETTINGS.staffHeight)
-   
-   --> Drawing the staff lines
-   love.graphics.setLineStyle("rough")
-   love.graphics.setLineWidth(SETTINGS.lineWidth)
-   love.graphics.setColor(SETTINGS.colorScheme["print-color"])
-
-   for i = 1, 5, 1 do
-      local y = SETTINGS.getYforLine(i)
-      love.graphics.line(0, y, WINDOW_X, y)
-   end
-   love.graphics.setLineStyle("smooth")
-
-   --> Drawing the clef
-   love.graphics.draw(
-      SPRITES[SETTINGS.currentClef .. "-clef"],
-      SETTINGS.clefMargin, -- position x
-      SETTINGS.getYforLine(SETTINGS.clefs[SETTINGS.currentClef].baseLine), -- position y
-      0, -- rotation
-      SETTINGS.clefs[SETTINGS.currentClef].drawScale, -- scale x
-      nil, --scale y
-      0, -- offset x
-      SETTINGS.clefs[SETTINGS.currentClef].offsetY * SPRITES[SETTINGS.currentClef .. "-clef"]:getHeight() -- offset y
-   )
-
-   --> Drawing the sheet content
-   local clefWidth = SETTINGS.clefWidth(SETTINGS.currentClef)
-
-   love.graphics.setShader(SHADERS["gradient-cut"])
-   SHADERS["gradient-cut"]:send("minX", (clefWidth + 2 * SETTINGS.clefMargin))
-   SHADERS["gradient-cut"]:send("distance", SETTINGS.noteGradientDistance)
-   SHADERS["gradient-cut"]:send("staffHeight", SETTINGS.staffHeight)
-   --SHADERS.gradientCut:send("screenSize", {windowX, windowY})
-
-   CAMERA:attach(0, 0, WINDOW_X, WINDOW_Y)
-
-   local accidentals = {}
-   local beatPosition = 0
-	local lastBeatDuration = 1
-	local screenSide = -1
-
-	local defaultWhatToDraw = {}
-	defaultWhatToDraw.drawHead = true
-   defaultWhatToDraw.drawLedgerLines = false
-   defaultWhatToDraw.drawAccidentals = false
-   defaultWhatToDraw.drawStem = false
-   defaultWhatToDraw.drawFlag = false
-	defaultWhatToDraw.direction = 0
-
-	local whatGotDrawn = defaultWhatToDraw
-
-   for i, content in ipairs(SETTINGS.sheetContent) do
-      if content.type == "note" and screenSide <= 0 then
-         screenSide, whatGotDrawn = content:draw(beatPosition, accidentals, false)
-
-         if content.pitch ~= nil then
-            accidentals[content.pitch] = content.accidental
-         end
-			lastBeatDuration = content.beatDuration
-         beatPosition = beatPosition + content.beatDuration * SETTINGS.timeSignature.denominator / 4
-
-      elseif content.type == "noteGroup" and screenSide <= 0 then
-         beatPosition, accidentals, lastBeatDuration = content:draw(beatPosition, accidentals)
-			whatGotDrawn = defaultWhatToDraw
-
-      elseif content.type == "timeSignature" then
-         SETTINGS.timeSignature.numerator = content.numerator
-         SETTINGS.timeSignature.denominator = content.denominator
-         content:draw(beatPosition)
-      end
-
-      if beatPosition > 0 and beatPosition % SETTINGS.timeSignature.numerator == 0 then
-         --> Measure reached
-         SETTINGS.drawBar(beatPosition / SETTINGS.timeSignature.numerator, lastBeatDuration, whatGotDrawn)
-         accidentals = {}
-      end
-   end
-
-   love.graphics.setShader()
-   CAMERA:detach()
-   love.graphics.origin()
-end
-
-
 function SETTINGS.drawMeasure(measure, beatPosition, accidentals)
 	local lastBeatDuration = 1
 	local defaultWhatToDraw = {}
@@ -554,22 +297,24 @@ function SETTINGS.drawMeasure(measure, beatPosition, accidentals)
 				currentNoteGroup = STAFF_MODULES.noteGroup.new()
 			end
 			if noteData.type == "end-group" and currentNoteGroup then
-				beatPosition, accidentals, lastBeatDuration = currentNoteGroup:drawNEW(beatPosition, accidentals)
+				beatPosition, accidentals, lastBeatDuration = currentNoteGroup:draw(beatPosition, accidentals)
 				whatGotDrawn = defaultWhatToDraw
 				currentNoteGroup = nil
 			end
 
 			if noteData.type == "note" and (screenSide <= 0) then
-				local newNote = STAFF_MODULES.note.newNEW(noteData)
+				local newNote = STAFF_MODULES.note.new(noteData)
 
 				if not currentNoteGroup or newNote.duration >= 1 or #newNote.pitches <= 0 then
-					screenSide, whatGotDrawn = newNote:drawNEW(beatPosition, accidentals, false)
+					screenSide, whatGotDrawn = newNote:draw(beatPosition, accidentals, false)
 
 					--> CHANGE THIS LATER
-					if newNote.pitch ~= nil then
-						accidentals[newNote.pitch] = newNote.accidental
+					if newNote.pitches ~= nil then
+						for i, newNotePitch in ipairs(newNote.pitches) do
+							accidentals[newNotePitch] = newNote.accidentals[i]
+						end
 					end
-					lastBeatDuration = newNote.beatDuration
+					lastBeatDuration = newNote.duration
 					beatPosition = beatPosition + newNote.duration * SETTINGS.timeSignature.denominator / 4
 				else
 					table.insert(currentNoteGroup.children, newNote)
@@ -587,7 +332,7 @@ function SETTINGS.drawMeasure(measure, beatPosition, accidentals)
 end
 
 
-function SETTINGS.drawSheetContentNEW()
+function SETTINGS.drawSheetContent()
 	SETTINGS.staffPositionY = SETTINGS.staffPositionYPercent * WINDOW_Y
 	SETTINGS.staffHeight = SETTINGS.staffHeightPercent * WINDOW_Y
 

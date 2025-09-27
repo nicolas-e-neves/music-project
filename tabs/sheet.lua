@@ -103,7 +103,7 @@ end
 
 function sheetTab.draw()
    love.graphics.setBackgroundColor(SETTINGS.colorScheme["background-color"])
-   SETTINGS.drawSheetContentNEW()
+   SETTINGS.drawSheetContent()
    --SETTINGS.drawMiddleLines()
 
    --> Draw UI

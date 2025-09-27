@@ -1,4 +1,5 @@
 return {
+   dataversion = 0.0,
    Name = "Demo 2",
 
    {"clef", "G"},
