@@ -19,6 +19,9 @@ SETTINGS.beamMaxHeight = 0.5 --> in lines
 SETTINGS.beamSpacing = 0.5 --> Space between beans (in beam width)
 SETTINGS.stemOffsetY = 0.03 --> How much to offset the note stem so it aligns better with the note sprite
 SETTINGS.stemHeight = 3 --> in lines
+SETTINGS.stemMinHeight = 2.5/3 --> in percentage of stemHeight
+SETTINGS.stemHeightSensitivity = 0.5 --> How much to shorten the stem based on the trajectory
+SETTINGS.stemDeadZone = 0.5 --> If the trajectory is lower than this, don't shorten the stem
 SETTINGS.timeSignatureScale = 0.75 --> in staff height
 SETTINGS.colorfulNotes = false
 
@@ -70,7 +73,7 @@ end
 
 SETTINGS.rests = {}
 SETTINGS.rests[1] = {}
-SETTINGS.rests[1].scale = 3.125 / 4
+SETTINGS.rests[1].scale = 2.875 / 4
 SETTINGS.rests[1].offsetY = 0.5
 SETTINGS.rests[1].line = 3
 
@@ -189,6 +192,50 @@ end
 
 function SETTINGS.getXforBeat(beatPosition)
 	return beatPosition * SETTINGS.noteSpacing / SETTINGS.timeSignature.denominator * 4
+end
+
+
+function SETTINGS.getBeatForX(x)
+	return x / SETTINGS.noteSpacing * SETTINGS.timeSignature.denominator / 4
+end
+
+
+function SETTINGS.findMeasureOnBeat(beatPosition, systemIndex)
+	local lastTimeSignature = SETTINGS.sheetContent.systems[systemIndex][1].info.time or {4, 4}
+
+	for index, measure in ipairs(SETTINGS.sheetContent.systems[systemIndex]) do
+		local measureDuration = measure.info.time[1] or lastTimeSignature[1]
+		lastTimeSignature = measure.info.time or lastTimeSignature
+
+		if measureDuration > beatPosition then
+			return measure, index, beatPosition, lastTimeSignature
+		end
+		beatPosition = beatPosition - measureDuration
+	end
+
+	local lastIndex = #SETTINGS.sheetContent.systems[systemIndex]
+	local lastMeasure = SETTINGS.sheetContent.systems[systemIndex][lastIndex]
+	return lastMeasure, lastIndex, beatPosition, lastTimeSignature
+end
+
+
+function SETTINGS.findNoteOnBeat(beatPosition, system, voice)
+	local parentMeasure, measureIndex, beatPosition, timeSignature = SETTINGS.findMeasureOnBeat(beatPosition, system)
+	local parentVoice = parentMeasure.content[voice]
+	if not parentVoice then return nil end
+
+	local currentBeat = 0
+
+	for index, content in ipairs(parentVoice) do
+		if content.type == "note" then
+			local noteDuration = content.duration * (timeSignature[2] or 4) / 4
+			
+			if currentBeat + noteDuration > beatPosition then
+				return content, index, beatPosition - currentBeat
+			end
+			currentBeat = currentBeat + noteDuration
+		end
+	end
 end
 
 
@@ -374,31 +421,36 @@ function SETTINGS.drawSheetContent()
 	CAMERA:attach(0, 0, WINDOW_X, WINDOW_Y)
 
 	local accidentals = {}
-	local beatPosition = 0
 	local screenSide = -1
+	
+	for systemIndex, system in ipairs(SETTINGS.sheetContent.systems) do
+		-- TODO: Find last measure in the camera to draw
+		local beatPosition = SETTINGS.getBeatForX(SETTINGS.camera.x)
+		local startMeasure, startIndex, remainder = SETTINGS.findMeasureOnBeat(beatPosition, systemIndex)
+		beatPosition = beatPosition - remainder
 
-	for _, system in ipairs(SETTINGS.sheetContent.systems) do
-		for measureNumber, measure in ipairs(system) do
+		--> Update settings based on the measure info
+		if startMeasure.info then
+			SETTINGS.currentClef = startMeasure.info.clef or SETTINGS.currentClef or "G"
+			SETTINGS.tempo = startMeasure.info.tempo or SETTINGS.tempo or 120
 
-			--> New measure, read info
-			if measure.info then
-				SETTINGS.currentClef = measure.info.clef or SETTINGS.currentClef or "G"
-				SETTINGS.tempo = measure.info.tempo or SETTINGS.tempo or 120
+			SETTINGS.timeSignature.numerator = startMeasure.info.time[1] or SETTINGS.timeSignature.numerator or 4
+			SETTINGS.timeSignature.denominator = startMeasure.info.time[2] or SETTINGS.timeSignature.denominator or 4
+		end
 
-				SETTINGS.timeSignature.numerator = measure.info.time[1] or SETTINGS.timeSignature.numerator or 4
-				SETTINGS.timeSignature.denominator = measure.info.time[2] or SETTINGS.timeSignature.denominator or 4
-
-				--local newItem = STAFF_MODULES.timeSignature.new(info[2], info[3])
-				--newItem:draw(beatPosition)
-			end
+		for measureIndex = startIndex, #system do
+			local measure = system[measureIndex]
 
 			if measure.content then
+				--> Draw measure
 				SETTINGS.drawMeasure(measure, beatPosition, accidentals)
 				beatPosition = beatPosition + SETTINGS.timeSignature.numerator
 				accidentals = {}
 				screenSide = -1
 			end
 		end
+		accidentals = {}
+		screenSide = -1
 	end
 	love.graphics.setShader()
 	CAMERA:detach()

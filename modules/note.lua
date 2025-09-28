@@ -24,7 +24,7 @@ function note.getStemPositionForLine(line, stemHeight)
 end
 
 
-function note:decideWhatToDrawNEW(averageLine, lowestLine, highestLine, currentAccidentals, headOnly)
+function note:decideWhatToDraw(averageLine, lowestLine, highestLine, currentAccidentals, headOnly)
    --[[
       ORDER TO DECIDE:
       --> Head
@@ -110,19 +110,25 @@ function note:draw(beatPosition, currentAccidentals, headOnly)
    local lowestIndex = 1
    local averageLine = 0
 
-   for index, pitch in ipairs(self.pitches or {}) do
-      if pitch > self.pitches[highestIndex] then highestIndex = index end
-      if pitch < self.pitches[lowestIndex]  then lowestIndex  = index end
+   if self.pitches == nil or #self.pitches == 0 then --> Rest
+      averageLine = SETTINGS.rests[self.duration].line or 3
+      table.insert(lines, averageLine)
+   else
+      for index, pitch in ipairs(self.pitches or {}) do
+         if pitch > self.pitches[highestIndex] then highestIndex = index end
+         if pitch < self.pitches[lowestIndex]  then lowestIndex  = index end
 
-      local line = SETTINGS.getLineForPitch(pitch, self.duration)
-      averageLine = averageLine + line
-      table.insert(lines, line)
+         local line = SETTINGS.getLineForPitch(pitch, self.duration)
+         averageLine = averageLine + line
+         table.insert(lines, line)
+      end
+      averageLine = averageLine / #lines
    end
-   averageLine = averageLine / #lines
+   
    local lowestLine = lines[lowestIndex]
    local highestLine = lines[highestIndex]
 
-   local whatToDraw = self:decideWhatToDrawNEW(averageLine, lowestLine, highestLine, currentAccidentals, headOnly)
+   local whatToDraw = self:decideWhatToDraw(averageLine, lowestLine, highestLine, currentAccidentals, headOnly)
    local direction = whatToDraw.direction --> 1: Down ; -1: Up
 
    --> Don't draw if it's outside the screen

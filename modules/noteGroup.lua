@@ -91,10 +91,12 @@ function noteGroup:draw(beatPosition, accidentals)
    local noteCount = #self.children
    local direction = self:getGroupDirection()
    local furthestNote, furthestNoteIndex, furthestPitchIndex, furthestLine = self:getFurthestNote(direction) -- (furthestNoteIndex - 1) / (total - 1) -> t
+   local closestNote, closestNoteIndex, closestPitchIndex, closestLine = self:getFurthestNote(-direction)
    local trajectory = self:getTrajectory() --> (b - a)
 
    local stemHeight = SETTINGS.stemHeight + 0.5
-   stemHeight = math.max(stemHeight - math.abs(trajectory) / 2, stemHeight / 2) --+ math.abs(trajectory)
+   local shorten = math.max(0, math.abs(furthestLine - closestLine) - SETTINGS.stemDeadZone) * SETTINGS.stemHeightSensitivity
+   stemHeight = math.max(stemHeight - shorten, SETTINGS.stemMinHeight * SETTINGS.stemHeight)
    local passingLine = furthestLine + stemHeight * direction --> r
    --[[
       a + (b - a) * t = r

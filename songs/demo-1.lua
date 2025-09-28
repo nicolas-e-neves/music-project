@@ -3,7 +3,7 @@ return {
 
    title = "Demo 1",
    subtitle = "",
-   authors = {"Desconhecido"},
+   authors = {""},
 
    systems = {
       [1] = { -- System 1

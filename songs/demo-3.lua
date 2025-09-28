@@ -3,7 +3,7 @@ return {
 
    title = "Demo 3",
    subtitle = "Treble and Bass Clefs",
-   authors = {"Nícolas Neves"},
+   authors = {""},
 
    systems = {
       [1] = {                    --> System 1
@@ -38,7 +38,7 @@ return {
          },
          [2] = {                 --> Measure 2
             info = {
-               clef = "G",
+               clef = "F",
                key = 0,
                time = {4, 4},
                tempo = 120,

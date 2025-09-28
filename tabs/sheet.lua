@@ -1,45 +1,6 @@
 local sheetTab = {}
 sheetTab.playing = false
 sheetTab.beatPosition = 0
-sheetTab.songIndex = 1
-
-
-function findNoteOnBeatPosition(targetBeatPosition)
-   --currentIndex = currentIndex or 1
-
-   local nonLegato = 1/32 --> CHANGE THIS LATER
-   local extraPause = false
-
-   local beatPosition = 0
-   for i, content in ipairs(SETTINGS.sheetContent) do
-
-      if content.type == "note" then
-         beatPosition = beatPosition + content.beatDuration
-
-         if beatPosition >= targetBeatPosition then
-            if beatPosition - nonLegato < targetBeatPosition then
-               extraPause = true
-            end
-            return content, extraPause
-         end
-
-      elseif content.type == "noteGroup" then
-
-         for j, note in ipairs(content.children) do
-            beatPosition = beatPosition + note.beatDuration
-            
-            if beatPosition >= targetBeatPosition then
-               if beatPosition - nonLegato < targetBeatPosition then
-                  extraPause = true
-               end
-               return note, extraPause
-            end
-         end
-
-      end
-
-   end
-end
 
 
 function sheetTab.update(dt)
@@ -139,6 +100,19 @@ end
 
 
 function sheetTab.keypressed(key, scancode, isrepeat)
+   if key == "." then
+      SETTINGS.camera.x = SETTINGS.camera.x + SETTINGS.noteSpacing
+   elseif key == "," then
+      SETTINGS.camera.x = SETTINGS.camera.x - SETTINGS.noteSpacing
+   end
+
+   if key == "escape" then
+      sheetTab.playing = false
+      AUDIO.sine:stop()
+      SETTINGS.currentTab = TABS["song-selector"]
+      return
+   end
+
    if key ~= "space" then return end
    sheetTab.playing = not sheetTab.playing
    sheetTab.beatPosition = 0
@@ -156,6 +130,10 @@ end
 
 function sheetTab.wheelmoved(dx, dy)
    if love.mouse.isDown(1) then return end
+   if love.keyboard.isDown("lctrl") then
+      SETTINGS.noteSpacing = clamp(SETTINGS.noteSpacing + dy * 0.125, 0.75, 4)
+      return
+   end
    sheetTab.applyCameraScroll(dy, dx, SETTINGS.camera.scrollSpeed, 1)
 end
 
